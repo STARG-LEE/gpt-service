@@ -275,7 +275,7 @@ async def read_root():
                         },
                         body: JSON.stringify({
                             message: message,
-                            model: 'gpt-4o-mini',
+                            model: 'gpt-5-mini',
                             temperature: temperature
                         })
                     });

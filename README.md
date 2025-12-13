@@ -136,6 +136,42 @@ GPT와 대화하는 엔드포인트입니다.
 }
 ```
 
+## Streamlit Cloud에 배포하기
+
+### 1. Streamlit Cloud 연결
+
+1. [Streamlit Cloud](https://streamlit.io/cloud)에 접속하여 GitHub 계정으로 로그인합니다.
+2. "New app" 버튼을 클릭합니다.
+3. GitHub 저장소를 선택합니다: `STARG-LEE/gpt-service`
+4. Main file path를 `streamlit_app.py`로 설정합니다.
+5. "Advanced settings"를 클릭하여 Secrets를 추가합니다:
+
+```
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+6. "Deploy!" 버튼을 클릭합니다.
+
+### 2. 로컬에서 Streamlit 실행
+
+```bash
+streamlit run streamlit_app.py
+```
+
+## FastAPI로 실행하기
+
+FastAPI 버전을 사용하려면:
+
+```bash
+python app.py
+```
+
+또는:
+
+```bash
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
+```
+
 ## GitHub에 배포하기
 
 ### 1. GitHub 저장소 생성

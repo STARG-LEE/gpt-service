@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from openai import OpenAI
 import os
+import re
 from dotenv import load_dotenv
 
 # 환경 변수 로드 (.env 파일이 있으면 로드, 없어도 시스템 환경 변수 사용)
@@ -28,18 +29,15 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # 시스템 프롬프트: 마크다운 형식 없이 자연스러운 텍스트로 응답
 SYSTEM_PROMPT = """당신은 친절하고 도움이 되는 AI 어시스턴트입니다. 
 
-중요: 응답할 때 절대로 마크다운 형식을 사용하지 마세요. 다음을 사용하지 마세요:
-- **굵게** 또는 __굵게__
-- *기울임* 또는 _기울임_
-- # 제목, ## 부제목 등
-- - 리스트 또는 * 리스트
-- `코드` 또는 ```코드 블록```
-- [링크](url) 형식
-- 기타 마크다운 문법
+중요한 지침:
+1. 절대로 마크다운 형식을 사용하지 마세요 (**, *, #, -, `, [] 등)
+2. 일반 텍스트로 자연스럽고 읽기 쉽게 작성해주세요
+3. 줄바꿈을 최소화하세요 - 문단 구분은 한 번의 줄바꿈으로 충분합니다
+4. 연속된 빈 줄을 사용하지 마세요
+5. 내용을 간결하고 흐름 있게 작성해주세요
+6. 문장 사이는 자연스럽게 연결하고, 필요할 때만 줄바꿈을 사용하세요
 
-대신 일반 텍스트로 자연스럽고 읽기 쉽게 작성해주세요. 
-줄바꿈을 적절히 사용하고, 문단을 나누어 보기 좋게 작성해주세요.
-웹 인터페이스에서 바로 표시될 수 있도록 깔끔한 형식으로 답변해주세요."""
+웹 인터페이스에서 바로 표시될 수 있도록 깔끔하고 간결한 형식으로 답변해주세요."""
 
 
 class ChatRequest(BaseModel):
@@ -334,9 +332,13 @@ async def chat(request: ChatRequest):
         # 응답 텍스트 가져오기
         response_text = response.choices[0].message.content
         
-        # 줄바꿈을 <br>로 변환하여 HTML에서 보기 좋게 표시
-        # 마크다운 변환 없이 순수 텍스트로 처리
-        html_content = response_text.replace('\n\n', '</p><p>').replace('\n', '<br>')
+        # 연속된 줄바꿈을 최대 2개로 제한하고, 불필요한 공백 제거
+        # 연속된 3개 이상의 줄바꿈을 2개로 줄임
+        response_text = re.sub(r'\n{3,}', '\n\n', response_text)
+        # 문단 시작/끝의 불필요한 줄바꿈 제거
+        response_text = response_text.strip()
+        # 줄바꿈을 HTML로 변환 (연속된 줄바꿈은 문단 구분, 단일 줄바꿈은 공백)
+        html_content = response_text.replace('\n\n', '</p><p>').replace('\n', ' ')
         html_content = f'<p>{html_content}</p>'
         
         return ChatResponse(

@@ -144,13 +144,26 @@ GPT와 대화하는 엔드포인트입니다.
 2. "New app" 버튼을 클릭합니다.
 3. GitHub 저장소를 선택합니다: `STARG-LEE/gpt-service`
 4. Main file path를 `streamlit_app.py`로 설정합니다.
-5. "Advanced settings"를 클릭하여 Secrets를 추가합니다:
+5. "Deploy!" 버튼을 클릭합니다.
 
-```
-OPENAI_API_KEY=your_openai_api_key_here
+### 2. API 키 설정 (중요!)
+
+배포 후 API 키를 설정해야 합니다:
+
+1. 앱 대시보드에서 **"⚙️ Settings"** (설정) 클릭
+2. 왼쪽 메뉴에서 **"Secrets"** 선택
+3. Secrets 편집기에 다음을 입력:
+
+```toml
+OPENAI_API_KEY = "sk-your-actual-api-key-here"
 ```
 
-6. "Deploy!" 버튼을 클릭합니다.
+4. **"Save"** 버튼 클릭
+5. 앱이 자동으로 재배포됩니다
+
+> **참고:** API 키는 `sk-`로 시작하는 긴 문자열입니다. [OpenAI Platform](https://platform.openai.com/api-keys)에서 발급받을 수 있습니다.
+
+자세한 내용은 [STREAMLIT_DEPLOY.md](STREAMLIT_DEPLOY.md)를 참고하세요.
 
 ### 2. 로컬에서 Streamlit 실행
 

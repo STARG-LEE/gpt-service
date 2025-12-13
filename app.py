@@ -42,7 +42,7 @@ SYSTEM_PROMPT = """당신은 친절하고 도움이 되는 AI 어시스턴트입
 
 class ChatRequest(BaseModel):
     message: str
-    model: str = "gpt-4o-mini"  # 기본 모델
+    model: str = "gpt-5-mini"  # 기본 모델
     temperature: float = 0.7
     max_tokens: int = 1000
 

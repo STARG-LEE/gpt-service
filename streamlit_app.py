@@ -213,16 +213,18 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     
     st.markdown("### 🎚️ Temperature")
+    st.info("⚠️ 현재 모델(gpt-5-mini)은 temperature 조절을 지원하지 않습니다. 기본값(1.0)이 사용됩니다.")
     temperature = st.slider(
-        "Temperature",
+        "Temperature (현재 모델에서 미지원)",
         min_value=0.0,
         max_value=2.0,
-        value=0.7,
+        value=1.0,
         step=0.1,
-        help="값이 높을수록 더 창의적인 응답을 생성합니다",
-        label_visibility="collapsed"
+        help="gpt-5-mini는 temperature를 지원하지 않습니다. 다른 모델을 사용하면 조절 가능합니다.",
+        label_visibility="collapsed",
+        disabled=True
     )
-    st.caption("💡 값이 높을수록 더 창의적인 응답을 생성합니다")
+    st.caption("💡 gpt-5-mini는 temperature 조절을 지원하지 않습니다")
     
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -275,16 +277,21 @@ with tab1:
             with st.chat_message("assistant"):
                 with st.spinner("응답을 생성하는 중..."):
                     try:
-                        response = client.chat.completions.create(
-                            model="gpt-5-mini",
-                            messages=[
+                        # gpt-5-mini는 temperature를 지원하지 않으므로 파라미터에서 제외
+                        api_params = {
+                            "model": "gpt-5-mini",
+                            "messages": [
                                 {"role": "system", "content": SYSTEM_PROMPT},
                                 *[{"role": msg["role"], "content": msg["content"]} 
                                   for msg in st.session_state.messages]
                             ],
-                            temperature=temperature,
-                            max_completion_tokens=1000
-                        )
+                            "max_completion_tokens": 1000
+                        }
+                        # temperature는 gpt-5-mini에서 지원하지 않으므로 제외
+                        # 다른 모델을 사용할 경우를 대비해 주석 처리
+                        # api_params["temperature"] = temperature
+                        
+                        response = client.chat.completions.create(**api_params)
                         
                         response_text = response.choices[0].message.content
                         

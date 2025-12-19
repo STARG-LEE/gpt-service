@@ -319,15 +319,20 @@ async def chat(request: ChatRequest):
         if not os.getenv("OPENAI_API_KEY"):
             raise HTTPException(status_code=500, detail="OPENAI_API_KEY가 설정되지 않았습니다.")
         
-        response = client.chat.completions.create(
-            model=request.model,
-            messages=[
+        # gpt-5-mini는 temperature를 지원하지 않으므로 조건부로 전달
+        api_params = {
+            "model": request.model,
+            "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": request.message}
             ],
-            temperature=request.temperature,
-            max_completion_tokens=request.max_completion_tokens
-        )
+            "max_completion_tokens": request.max_completion_tokens
+        }
+        # gpt-5-mini가 아닌 경우에만 temperature 전달
+        if request.model != "gpt-5-mini":
+            api_params["temperature"] = request.temperature
+        
+        response = client.chat.completions.create(**api_params)
         
         # 응답 텍스트 가져오기
         response_text = response.choices[0].message.content

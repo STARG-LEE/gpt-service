@@ -283,7 +283,7 @@ with tab1:
                                   for msg in st.session_state.messages]
                             ],
                             temperature=temperature,
-                            max_tokens=1000
+                            max_completion_tokens=1000
                         )
                         
                         response_text = response.choices[0].message.content

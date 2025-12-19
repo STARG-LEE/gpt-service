@@ -44,7 +44,7 @@ class ChatRequest(BaseModel):
     message: str
     model: str = "gpt-5-mini"  # 기본 모델
     temperature: float = 0.7
-    max_tokens: int = 1000
+    max_completion_tokens: int = 1000
 
 
 class ChatResponse(BaseModel):
@@ -326,7 +326,7 @@ async def chat(request: ChatRequest):
                 {"role": "user", "content": request.message}
             ],
             temperature=request.temperature,
-            max_tokens=request.max_tokens
+            max_completion_tokens=request.max_completion_tokens
         )
         
         # 응답 텍스트 가져오기

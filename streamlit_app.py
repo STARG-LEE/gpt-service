@@ -377,7 +377,7 @@ with tab1:
                     try:
                         # Vision API를 사용하기 위해 모델을 gpt-4o-mini로 변경 (gpt-5-mini는 vision 미지원 가능)
                         # 이미지가 포함된 경우 vision 지원 모델 사용
-                        model_name = "gpt-5.1" if isinstance(user_message_content, list) else "gpt-5-mini"
+                        model_name = "gpt-4o-mini" if isinstance(user_message_content, list) else "gpt-5-mini"
                         
                         # 메시지 변환 (이전 메시지들도 올바른 형식으로)
                         formatted_messages = [{"role": "system", "content": SYSTEM_PROMPT}]

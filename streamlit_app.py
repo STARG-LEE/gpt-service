@@ -172,13 +172,19 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "안녕하세요! 무엇을 도와드릴까요?"}
     ]
 
+if "generated_images" not in st.session_state:
+    st.session_state.generated_images = []
+
 # 헤더
 st.markdown("""
     <div style="text-align: center; padding: 2rem 0;">
-        <h1>🤖 GPT Text Service</h1>
-        <p style="color: #666; font-size: 1.1rem; margin-top: -1rem;">GPT API를 활용한 텍스트 대화 서비스</p>
+        <h1>🤖 GPT Service</h1>
+        <p style="color: #666; font-size: 1.1rem; margin-top: -1rem;">GPT API를 활용한 텍스트 대화 및 이미지 생성 서비스</p>
     </div>
 """, unsafe_allow_html=True)
+
+# 탭 생성
+tab1, tab2 = st.tabs(["💬 텍스트 채팅", "🎨 이미지 생성"])
 
 # 사이드바 설정
 with st.sidebar:
@@ -233,73 +239,178 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-# 채팅 컨테이너
-st.markdown("""
-    <div style="max-width: 900px; margin: 0 auto;">
-""", unsafe_allow_html=True)
+# 텍스트 채팅 탭
+with tab1:
+    # 채팅 컨테이너
+    st.markdown("""
+        <div style="max-width: 900px; margin: 0 auto;">
+    """, unsafe_allow_html=True)
 
-# 채팅 메시지 표시
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(f"""
-            <div style="line-height: 1.6; font-size: 1rem;">
-                {message["content"]}
-            </div>
-        """, unsafe_allow_html=True)
+    # 채팅 메시지 표시
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(f"""
+                <div style="line-height: 1.6; font-size: 1rem;">
+                    {message["content"]}
+                </div>
+            """, unsafe_allow_html=True)
 
-st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# 사용자 입력
-if prompt := st.chat_input("💬 메시지를 입력하세요..."):
-    # 사용자 메시지 추가 및 표시
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.write(prompt)
+    # 사용자 입력
+    if prompt := st.chat_input("💬 메시지를 입력하세요..."):
+        # 사용자 메시지 추가 및 표시
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.write(prompt)
+        
+        # OpenAI 클라이언트 가져오기
+        client = get_openai_client()
+        
+        if not client:
+            with st.chat_message("assistant"):
+                st.error("API 키가 설정되지 않았습니다. 사이드바에서 확인하세요.")
+        else:
+            # 어시스턴트 응답 생성
+            with st.chat_message("assistant"):
+                with st.spinner("응답을 생성하는 중..."):
+                    try:
+                        response = client.chat.completions.create(
+                            model="gpt-4o-mini",
+                            messages=[
+                                {"role": "system", "content": SYSTEM_PROMPT},
+                                *[{"role": msg["role"], "content": msg["content"]} 
+                                  for msg in st.session_state.messages]
+                            ],
+                            temperature=temperature,
+                            max_tokens=1000
+                        )
+                        
+                        response_text = response.choices[0].message.content
+                        
+                        # 연속된 줄바꿈을 최대 2개로 제한하고, 불필요한 공백 제거
+                        # 연속된 3개 이상의 줄바꿈을 2개로 줄임
+                        response_text = re.sub(r'\n{3,}', '\n\n', response_text)
+                        # 문단 시작/끝의 불필요한 줄바꿈 제거
+                        response_text = response_text.strip()
+                        # 줄바꿈을 HTML로 변환 (연속된 줄바꿈은 문단 구분, 단일 줄바꿈은 공백)
+                        html_text = response_text.replace('\n\n', '</p><p>').replace('\n', ' ')
+                        html_text = f'<p>{html_text}</p>'
+                        
+                        st.markdown(f"""
+                            <div style="line-height: 1.8; font-size: 1rem;">
+                                {html_text}
+                            </div>
+                        """, unsafe_allow_html=True)
+                        st.session_state.messages.append({"role": "assistant", "content": response_text})
+                        
+                    except Exception as e:
+                        error_message = f"오류가 발생했습니다: {str(e)}"
+                        st.error(error_message)
+                        st.session_state.messages.append({"role": "assistant", "content": error_message})
+
+# 이미지 생성 탭
+with tab2:
+    st.markdown("### 🎨 이미지 생성")
+    st.markdown("텍스트 프롬프트를 입력하면 AI가 이미지를 생성합니다.")
     
-    # OpenAI 클라이언트 가져오기
-    client = get_openai_client()
+    # 이미지 생성 설정
+    col1, col2 = st.columns(2)
+    with col1:
+        image_model = st.selectbox(
+            "모델 선택",
+            ["dall-e-3", "dall-e-2"],
+            index=0,
+            help="dall-e-3는 더 고품질, dall-e-2는 더 저렴합니다"
+        )
+    with col2:
+        image_size = st.selectbox(
+            "이미지 크기",
+            ["1024x1024", "1024x1792", "1792x1024"] if image_model == "dall-e-3" else ["256x256", "512x512", "1024x1024"],
+            index=0
+        )
     
-    if not client:
-        with st.chat_message("assistant"):
-            st.error("API 키가 설정되지 않았습니다. 사이드바에서 확인하세요.")
+    if image_model == "dall-e-3":
+        image_quality = st.radio(
+            "품질",
+            ["standard", "hd"],
+            index=0,
+            horizontal=True,
+            help="HD는 더 고품질이지만 더 비쌉니다"
+        )
     else:
-        # 어시스턴트 응답 생성
-        with st.chat_message("assistant"):
-            with st.spinner("응답을 생성하는 중..."):
-                try:
-                    response = client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=[
-                            {"role": "system", "content": SYSTEM_PROMPT},
-                            *[{"role": msg["role"], "content": msg["content"]} 
-                              for msg in st.session_state.messages]
-                        ],
-                        temperature=temperature,
-                        max_tokens=1000
-                    )
-                    
-                    response_text = response.choices[0].message.content
-                    
-                    # 연속된 줄바꿈을 최대 2개로 제한하고, 불필요한 공백 제거
-                    # 연속된 3개 이상의 줄바꿈을 2개로 줄임
-                    response_text = re.sub(r'\n{3,}', '\n\n', response_text)
-                    # 문단 시작/끝의 불필요한 줄바꿈 제거
-                    response_text = response_text.strip()
-                    # 줄바꿈을 HTML로 변환 (연속된 줄바꿈은 문단 구분, 단일 줄바꿈은 공백)
-                    html_text = response_text.replace('\n\n', '</p><p>').replace('\n', ' ')
-                    html_text = f'<p>{html_text}</p>'
-                    
-                    st.markdown(f"""
-                        <div style="line-height: 1.8; font-size: 1rem;">
-                            {html_text}
-                        </div>
-                    """, unsafe_allow_html=True)
-                    st.session_state.messages.append({"role": "assistant", "content": response_text})
-                    
-                except Exception as e:
-                    error_message = f"오류가 발생했습니다: {str(e)}"
-                    st.error(error_message)
-                    st.session_state.messages.append({"role": "assistant", "content": error_message})
+        image_quality = "standard"
+    
+    # 이미지 생성 프롬프트 입력
+    image_prompt = st.text_area(
+        "이미지 설명을 입력하세요",
+        placeholder="예: 고양이가 우주복을 입고 달에서 춤추는 모습",
+        height=100
+    )
+    
+    if st.button("🖼️ 이미지 생성", type="primary", use_container_width=True):
+        if not image_prompt:
+            st.warning("이미지 설명을 입력해주세요.")
+        else:
+            client = get_openai_client()
+            
+            if not client:
+                st.error("API 키가 설정되지 않았습니다. 사이드바에서 확인하세요.")
+            else:
+                with st.spinner("이미지를 생성하는 중..."):
+                    try:
+                        # OpenAI 이미지 생성 API 호출
+                        if image_model == "dall-e-3":
+                            response = client.images.generate(
+                                model=image_model,
+                                prompt=image_prompt,
+                                size=image_size,
+                                quality=image_quality,
+                                n=1
+                            )
+                        else:
+                            response = client.images.generate(
+                                model=image_model,
+                                prompt=image_prompt,
+                                size=image_size,
+                                n=1
+                            )
+                        
+                        image_url = response.data[0].url
+                        
+                        # 생성된 이미지 표시
+                        st.markdown("### 생성된 이미지")
+                        st.image(image_url, caption=image_prompt, use_container_width=True)
+                        
+                        # 이미지 다운로드 버튼
+                        st.download_button(
+                            label="📥 이미지 다운로드",
+                            data=image_url,
+                            file_name=f"generated_image_{len(st.session_state.generated_images) + 1}.png",
+                            mime="image/png"
+                        )
+                        
+                        # 생성 기록에 추가
+                        st.session_state.generated_images.append({
+                            "prompt": image_prompt,
+                            "url": image_url,
+                            "model": image_model,
+                            "size": image_size
+                        })
+                        
+                        st.success("이미지가 성공적으로 생성되었습니다!")
+                        
+                    except Exception as e:
+                        st.error(f"이미지 생성 중 오류가 발생했습니다: {str(e)}")
+    
+    # 생성된 이미지 히스토리
+    if st.session_state.generated_images:
+        st.markdown("---")
+        st.markdown("### 📚 생성 기록")
+        for idx, img_data in enumerate(reversed(st.session_state.generated_images[-5:]), 1):
+            with st.expander(f"이미지 {len(st.session_state.generated_images) - len(st.session_state.generated_images[-5:]) + idx}: {img_data['prompt'][:50]}..."):
+                st.image(img_data["url"], use_container_width=True)
+                st.caption(f"모델: {img_data['model']} | 크기: {img_data['size']}")
 
 # 푸터
 st.markdown("<br><br>", unsafe_allow_html=True)

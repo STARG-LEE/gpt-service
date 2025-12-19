@@ -2,6 +2,9 @@ import streamlit as st
 import os
 import re
 import requests
+import base64
+from io import BytesIO
+from PIL import Image
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -176,6 +179,22 @@ if "messages" not in st.session_state:
 if "generated_images" not in st.session_state:
     st.session_state.generated_images = []
 
+# 이미지를 base64로 인코딩하는 함수
+def encode_image(image_file):
+    """이미지 파일을 base64로 인코딩"""
+    image = Image.open(image_file)
+    # 이미지 크기 조정 (너무 크면 API 제한에 걸릴 수 있음)
+    max_size = 2048
+    if max(image.size) > max_size:
+        image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+    
+    buffered = BytesIO()
+    # PNG 형식으로 저장
+    image.save(buffered, format="PNG")
+    img_bytes = buffered.getvalue()
+    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+    return img_base64
+
 # 헤더
 st.markdown("""
     <div style="text-align: center; padding: 2rem 0;">
@@ -252,20 +271,98 @@ with tab1:
     # 채팅 메시지 표시
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            st.markdown(f"""
-                <div style="line-height: 1.6; font-size: 1rem;">
-                    {message["content"]}
-                </div>
-            """, unsafe_allow_html=True)
+            # 이미지가 포함된 메시지인지 확인
+            if isinstance(message["content"], list):
+                # 멀티모달 메시지 (텍스트 + 이미지)
+                for content_item in message["content"]:
+                    if content_item.get("type") == "text":
+                        st.markdown(f"""
+                            <div style="line-height: 1.6; font-size: 1rem;">
+                                {content_item["text"]}
+                            </div>
+                        """, unsafe_allow_html=True)
+                    elif content_item.get("type") == "image_url":
+                        # 이미지 URL이 base64인 경우
+                        image_url = content_item["image_url"]["url"]
+                        if image_url.startswith("data:image"):
+                            # base64 이미지 디코딩 및 표시
+                            try:
+                                header, encoded = image_url.split(",", 1)
+                                img_data = base64.b64decode(encoded)
+                                img = Image.open(BytesIO(img_data))
+                                st.image(img, caption="첨부된 이미지", use_container_width=True)
+                            except:
+                                st.image(image_url, caption="첨부된 이미지", use_container_width=True)
+                        else:
+                            st.image(image_url, caption="첨부된 이미지", use_container_width=True)
+            else:
+                # 일반 텍스트 메시지
+                st.markdown(f"""
+                    <div style="line-height: 1.6; font-size: 1rem;">
+                        {message["content"]}
+                    </div>
+                """, unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # 이미지 업로드
+    uploaded_file = st.file_uploader(
+        "📷 이미지 첨부 (선택사항)",
+        type=['png', 'jpg', 'jpeg', 'gif', 'webp'],
+        help="이미지를 업로드하면 텍스트와 함께 AI에게 전송됩니다"
+    )
+    
+    if uploaded_file is not None:
+        # 이미지 미리보기
+        image = Image.open(uploaded_file)
+        st.image(image, caption="업로드된 이미지", use_container_width=True, width=300)
+
     # 사용자 입력
     if prompt := st.chat_input("💬 메시지를 입력하세요..."):
+        # 사용자 메시지 구성
+        user_message_content = []
+        
+        # 이미지가 있으면 포함
+        if uploaded_file is not None:
+            try:
+                img_base64 = encode_image(uploaded_file)
+                img_data_url = f"data:image/png;base64,{img_base64}"
+                
+                # 멀티모달 메시지 형식으로 구성
+                user_message_content = [
+                    {
+                        "type": "text",
+                        "text": prompt if prompt else "이 이미지를 분석해주세요."
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": img_data_url
+                        }
+                    }
+                ]
+            except Exception as e:
+                st.error(f"이미지 처리 중 오류: {str(e)}")
+                user_message_content = prompt
+        else:
+            user_message_content = prompt
+        
         # 사용자 메시지 추가 및 표시
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.messages.append({"role": "user", "content": user_message_content})
         with st.chat_message("user"):
-            st.write(prompt)
+            if isinstance(user_message_content, list):
+                for item in user_message_content:
+                    if item.get("type") == "text":
+                        st.write(item["text"])
+                    elif item.get("type") == "image_url":
+                        img_url = item["image_url"]["url"]
+                        if img_url.startswith("data:image"):
+                            header, encoded = img_url.split(",", 1)
+                            img_data = base64.b64decode(encoded)
+                            img = Image.open(BytesIO(img_data))
+                            st.image(img, caption="첨부된 이미지", use_container_width=True)
+            else:
+                st.write(user_message_content)
         
         # OpenAI 클라이언트 가져오기
         client = get_openai_client()
@@ -278,14 +375,28 @@ with tab1:
             with st.chat_message("assistant"):
                 with st.spinner("응답을 생성하는 중..."):
                     try:
+                        # Vision API를 사용하기 위해 모델을 gpt-4o-mini로 변경 (gpt-5-mini는 vision 미지원 가능)
+                        # 이미지가 포함된 경우 vision 지원 모델 사용
+                        model_name = "gpt-4o-mini" if isinstance(user_message_content, list) else "gpt-5-mini"
+                        
+                        # 메시지 변환 (이전 메시지들도 올바른 형식으로)
+                        formatted_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+                        for msg in st.session_state.messages:
+                            if msg["role"] == "user":
+                                formatted_messages.append({
+                                    "role": "user",
+                                    "content": msg["content"]
+                                })
+                            else:
+                                formatted_messages.append({
+                                    "role": msg["role"],
+                                    "content": msg["content"]
+                                })
+                        
                         # gpt-5-mini는 temperature를 지원하지 않으므로 파라미터에서 제외
                         api_params = {
-                            "model": "gpt-5-mini",
-                            "messages": [
-                                {"role": "system", "content": SYSTEM_PROMPT},
-                                *[{"role": msg["role"], "content": msg["content"]} 
-                                  for msg in st.session_state.messages]
-                            ],
+                            "model": model_name,
+                            "messages": formatted_messages,
                             "max_completion_tokens": 1000
                         }
                         # temperature는 gpt-5-mini에서 지원하지 않으므로 제외

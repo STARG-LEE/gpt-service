@@ -276,7 +276,7 @@ with tab1:
                 with st.spinner("응답을 생성하는 중..."):
                     try:
                         response = client.chat.completions.create(
-                            model="gpt-4o-mini",
+                            model="gpt-5-mini",
                             messages=[
                                 {"role": "system", "content": SYSTEM_PROMPT},
                                 *[{"role": msg["role"], "content": msg["content"]} 

@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import re
+import requests
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -389,13 +390,23 @@ with tab2:
                         st.markdown("### 생성된 이미지")
                         st.image(image_url, caption=image_prompt, use_container_width=True)
                         
-                        # 이미지 다운로드 버튼
-                        st.download_button(
-                            label="📥 이미지 다운로드",
-                            data=image_url,
-                            file_name=f"generated_image_{len(st.session_state.generated_images) + 1}.png",
-                            mime="image/png"
-                        )
+                        # 이미지 데이터 가져오기
+                        try:
+                            img_response = requests.get(image_url)
+                            img_response.raise_for_status()
+                            image_data = img_response.content
+                            
+                            # 이미지 다운로드 버튼
+                            st.download_button(
+                                label="📥 이미지 다운로드",
+                                data=image_data,
+                                file_name=f"generated_image_{len(st.session_state.generated_images) + 1}.png",
+                                mime="image/png"
+                            )
+                        except Exception as e:
+                            st.warning(f"이미지 다운로드 준비 중 오류: {str(e)}")
+                            # 대체 방법: URL 직접 링크 제공
+                            st.markdown(f"[이미지 URL 직접 열기]({image_url})")
                         
                         # 생성 기록에 추가
                         st.session_state.generated_images.append({

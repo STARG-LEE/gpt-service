@@ -345,7 +345,15 @@ with tab1:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # 클립보드 이미지 붙여넣기 지원을 위한 JavaScript
+    # 파일 업로드 (파일 선택)
+    uploaded_file = st.file_uploader(
+        "📷 이미지 첨부 (선택사항) - 파일 선택 또는 Ctrl+V로 붙여넣기",
+        type=['png', 'jpg', 'jpeg', 'gif', 'webp'],
+        help="이미지 파일을 선택하거나 클립보드에서 붙여넣기(Ctrl+V)할 수 있습니다",
+        key="image_uploader"
+    )
+    
+    # 클립보드 이미지 붙여넣기 지원을 위한 JavaScript (file_uploader 조작)
     st.markdown("""
         <script>
             (function() {
@@ -355,56 +363,66 @@ with tab1:
                     for (let i = 0; i < items.length; i++) {
                         if (items[i].type.indexOf('image') !== -1) {
                             const blob = items[i].getAsFile();
-                            const reader = new FileReader();
-                            reader.onload = function(event) {
-                                const base64 = event.target.result;
-                                // URL 파라미터를 통해 이미지 전달
-                                const url = new URL(window.location);
-                                url.searchParams.set('pasted_image', encodeURIComponent(base64));
-                                window.history.pushState({}, '', url);
-                                // 페이지 새로고침 대신 Streamlit에 알림
-                                window.location.reload();
-                            };
-                            reader.readAsDataURL(blob);
+                            
+                            // file_uploader의 input 요소 찾기
+                            const inputs = document.querySelectorAll('input[type="file"]');
+                            for (let input of inputs) {
+                                // 이미지 업로더인지 확인 (accept 속성 확인)
+                                if (input.accept && input.accept.includes('image')) {
+                                    try {
+                                        // DataTransfer를 사용하여 파일 설정
+                                        const dataTransfer = new DataTransfer();
+                                        const file = new File([blob], 'pasted-image.png', {type: 'image/png'});
+                                        dataTransfer.items.add(file);
+                                        input.files = dataTransfer.files;
+                                        
+                                        // change 이벤트 트리거
+                                        const changeEvent = new Event('change', { bubbles: true });
+                                        input.dispatchEvent(changeEvent);
+                                        
+                                        // input 이벤트도 트리거
+                                        const inputEvent = new Event('input', { bubbles: true });
+                                        input.dispatchEvent(inputEvent);
+                                        
+                                        // 시각적 피드백
+                                        input.style.border = '2px solid #667eea';
+                                        setTimeout(() => {
+                                            input.style.border = '';
+                                        }, 1000);
+                                        
+                                        e.preventDefault();
+                                        return;
+                                    } catch (err) {
+                                        console.error('Error handling paste:', err);
+                                    }
+                                }
+                            }
                             e.preventDefault();
                             break;
                         }
                     }
                 }
                 
-                // 이벤트 리스너 등록 (전역)
+                // 이벤트 리스너 등록 (전역, 캡처 단계에서)
                 document.addEventListener('paste', handlePaste, true);
                 
                 // 페이지 로드 후에도 작동하도록
-                window.addEventListener('load', function() {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        document.addEventListener('paste', handlePaste, true);
+                    });
+                } else {
+                    document.addEventListener('paste', handlePaste, true);
+                }
+                
+                // Streamlit이 동적으로 요소를 추가할 때를 대비
+                const observer = new MutationObserver(function(mutations) {
                     document.addEventListener('paste', handlePaste, true);
                 });
+                observer.observe(document.body, { childList: true, subtree: true });
             })();
         </script>
     """, unsafe_allow_html=True)
-    
-    # URL 파라미터에서 붙여넣은 이미지 가져오기
-    query_params = st.query_params
-    if 'pasted_image' in query_params:
-        try:
-            pasted_image_data = query_params['pasted_image']
-            # URL 디코딩
-            if isinstance(pasted_image_data, str):
-                pasted_image_data = pasted_image_data.replace('%2B', '+').replace('%2F', '/').replace('%3D', '=')
-            st.session_state.pasted_image = pasted_image_data
-            # URL 파라미터 제거
-            st.query_params.clear()
-            st.rerun()
-        except:
-            pass
-    
-    # 파일 업로드 (파일 선택)
-    uploaded_file = st.file_uploader(
-        "📷 이미지 첨부 (선택사항) - 파일 선택 또는 Ctrl+V로 붙여넣기",
-        type=['png', 'jpg', 'jpeg', 'gif', 'webp'],
-        help="이미지 파일을 선택하거나 클립보드에서 붙여넣기(Ctrl+V)할 수 있습니다",
-        key="image_uploader"
-    )
     
     # 업로드된 파일이 있으면 session_state에 저장
     if uploaded_file is not None:

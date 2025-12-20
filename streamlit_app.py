@@ -34,7 +34,9 @@ st.markdown("""
     .stChatFloatingInputContainer,
     div[data-baseweb="input"]:has([data-testid="stChatInput"]),
     form[data-testid="stChatInputForm"],
-    div:has([data-testid="stChatInput"]) {
+    div:has([data-testid="stChatInput"]),
+    section:has([data-testid="stChatInput"]),
+    div:has(form[data-testid="stChatInputForm"]) {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
@@ -42,6 +44,7 @@ st.markdown("""
         background: white !important;
         z-index: 99999 !important;
         padding: 1rem !important;
+        padding-bottom: 1rem !important;
         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
         border-top: 1px solid #e0e0e0 !important;
         margin: 0 !important;
@@ -64,10 +67,16 @@ st.markdown("""
     .main {
         overflow-y: auto !important;
         height: 100vh !important;
+        padding-bottom: 150px !important;
     }
     
     /* 채팅 메시지 영역 스크롤 */
     div[data-testid="stVerticalBlock"] {
+        padding-bottom: 150px !important;
+    }
+    
+    /* Streamlit 앱 컨테이너 */
+    #root > div {
         padding-bottom: 150px !important;
     }
     
@@ -369,8 +378,8 @@ with tab1:
         key="image_uploader"
     )
     
-    # 클립보드 이미지 붙여넣기 지원을 위한 JavaScript (개선된 버전)
-    st.markdown("""
+    # 클립보드 이미지 붙여넣기 지원을 위한 JavaScript (페이지 로드 시 실행)
+    components.html("""
         <script>
             (function() {
                 let pasteHandlerActive = true;
@@ -467,6 +476,8 @@ with tab1:
                 // 페이지 로드 후에도 등록
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', setupPasteHandler);
+                } else {
+                    setupPasteHandler();
                 }
                 
                 // Streamlit이 동적으로 요소를 추가할 때를 대비
@@ -474,9 +485,29 @@ with tab1:
                     setupPasteHandler();
                 });
                 observer.observe(document.body, { childList: true, subtree: true });
+                
+                // 채팅 입력창 하단 고정 강제 적용
+                function fixChatInputPosition() {
+                    const chatInputs = document.querySelectorAll('[data-testid="stChatInputContainer"], section[data-testid="stChatInputContainer"]');
+                    chatInputs.forEach(el => {
+                        el.style.position = 'fixed';
+                        el.style.bottom = '0';
+                        el.style.left = '0';
+                        el.style.right = '0';
+                        el.style.zIndex = '99999';
+                        el.style.background = 'white';
+                        el.style.padding = '1rem';
+                        el.style.boxShadow = '0 -2px 10px rgba(0, 0, 0, 0.1)';
+                        el.style.borderTop = '1px solid #e0e0e0';
+                    });
+                }
+                
+                // 주기적으로 채팅 입력창 위치 확인 및 수정
+                setInterval(fixChatInputPosition, 100);
+                fixChatInputPosition();
             })();
         </script>
-    """, unsafe_allow_html=True)
+    """, height=0, key="paste_and_fix_handler")
     
     # 업로드된 파일이 있으면 session_state에 저장
     if uploaded_file is not None:

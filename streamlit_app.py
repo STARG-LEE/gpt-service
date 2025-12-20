@@ -398,35 +398,70 @@ with tab1:
         except:
             pass
     
-    # 붙여넣은 이미지 미리보기 표시
-    if 'pasted_image' in st.session_state and st.session_state.pasted_image is not None:
+    # 파일 업로드 (파일 선택)
+    uploaded_file = st.file_uploader(
+        "📷 이미지 첨부 (선택사항) - 파일 선택 또는 Ctrl+V로 붙여넣기",
+        type=['png', 'jpg', 'jpeg', 'gif', 'webp'],
+        help="이미지 파일을 선택하거나 클립보드에서 붙여넣기(Ctrl+V)할 수 있습니다",
+        key="image_uploader"
+    )
+    
+    # 업로드된 파일이 있으면 session_state에 저장
+    if uploaded_file is not None:
         try:
-            img_data = base64.b64decode(st.session_state.pasted_image.split(',')[1])
+            img_base64 = encode_image(uploaded_file)
+            img_data_url = f"data:image/png;base64,{img_base64}"
+            st.session_state.uploaded_image = img_data_url
+        except Exception as e:
+            st.error(f"이미지 처리 중 오류: {str(e)}")
+    
+    # 붙여넣은 이미지 또는 업로드된 이미지 미리보기 표시
+    current_image = None
+    image_source = None
+    
+    if 'pasted_image' in st.session_state and st.session_state.pasted_image is not None:
+        current_image = st.session_state.pasted_image
+        image_source = "붙여넣은"
+    elif 'uploaded_image' in st.session_state and st.session_state.uploaded_image is not None:
+        current_image = st.session_state.uploaded_image
+        image_source = "업로드된"
+    
+    if current_image is not None:
+        try:
+            img_data = base64.b64decode(current_image.split(',')[1])
             img = Image.open(BytesIO(img_data))
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                st.image(img, caption="📷 붙여넣은 이미지 (Ctrl+V로 붙여넣기)", use_container_width=False, width=200)
+                st.image(img, caption=f"📷 {image_source} 이미지", use_container_width=False, width=200)
                 if st.button("❌ 이미지 제거", key="remove_image"):
-                    st.session_state.pasted_image = None
+                    if 'pasted_image' in st.session_state:
+                        st.session_state.pasted_image = None
+                    if 'uploaded_image' in st.session_state:
+                        st.session_state.uploaded_image = None
                     st.rerun()
         except Exception as e:
             # 이미지 파싱 오류 시 초기화
             if 'pasted_image' in st.session_state:
                 st.session_state.pasted_image = None
+            if 'uploaded_image' in st.session_state:
+                st.session_state.uploaded_image = None
 
     # 사용자 입력
-    if prompt := st.chat_input("💬 메시지를 입력하세요... (이미지는 Ctrl+V로 붙여넣기 가능)"):
+    if prompt := st.chat_input("💬 메시지를 입력하세요... (이미지는 파일 선택 또는 Ctrl+V로 붙여넣기 가능)"):
         # 사용자 메시지 구성
         user_message_content = []
         
-        # 붙여넣은 이미지가 있으면 포함
+        # 붙여넣은 이미지 또는 업로드된 이미지 확인
         pasted_image = st.session_state.get('pasted_image', None)
+        uploaded_image = st.session_state.get('uploaded_image', None)
         
-        # 이미지가 있으면 포함
-        if pasted_image is not None:
+        # 이미지가 있으면 포함 (붙여넣은 이미지 우선)
+        current_image = pasted_image if pasted_image is not None else uploaded_image
+        
+        if current_image is not None:
             try:
                 # base64 이미지 데이터 사용
-                img_data_url = pasted_image
+                img_data_url = current_image
                 
                 # 멀티모달 메시지 형식으로 구성
                 user_message_content = [
@@ -529,6 +564,8 @@ with tab1:
                         # 이미지 처리 완료 후 초기화
                         if 'pasted_image' in st.session_state:
                             st.session_state.pasted_image = None
+                        if 'uploaded_image' in st.session_state:
+                            st.session_state.uploaded_image = None
                         
                         # 스크롤을 맨 아래로 이동
                         st.markdown("""

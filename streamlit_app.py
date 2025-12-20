@@ -458,12 +458,20 @@ with tab1:
                         """, unsafe_allow_html=True)
                         st.session_state.messages.append({"role": "assistant", "content": response_text})
                         
-                        # 스크롤을 맨 아래로 이동 (JavaScript 사용)
+                        # 이미지 업로드 초기화 (전송 후)
+                        if 'image_uploader' in st.session_state:
+                            st.session_state.image_uploader = None
+                        
+                        # 스크롤을 맨 아래로 이동
                         st.markdown("""
                             <script>
                                 setTimeout(function() {
-                                    window.scrollTo(0, document.body.scrollHeight);
-                                }, 100);
+                                    window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});
+                                    const chatInput = document.querySelector('[data-testid="stChatInputContainer"]');
+                                    if (chatInput) {
+                                        chatInput.scrollIntoView({behavior: 'smooth', block: 'end'});
+                                    }
+                                }, 500);
                             </script>
                         """, unsafe_allow_html=True)
                         

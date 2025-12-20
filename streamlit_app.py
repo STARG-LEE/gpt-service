@@ -331,12 +331,71 @@ with tab1:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # 이미지 업로드 (파일 또는 붙여넣기)
+    # 클립보드 이미지 붙여넣기 지원을 위한 JavaScript
+    st.markdown("""
+        <script>
+            (function() {
+                // 클립보드 붙여넣기 이벤트 리스너
+                function handlePaste(e) {
+                    const items = e.clipboardData.items;
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.indexOf('image') !== -1) {
+                            const blob = items[i].getAsFile();
+                            const reader = new FileReader();
+                            reader.onload = function(event) {
+                                // Streamlit의 file_uploader input 요소 찾기
+                                const inputs = document.querySelectorAll('input[type="file"]');
+                                for (let input of inputs) {
+                                    // 이미지 업로더인지 확인 (accept 속성 확인)
+                                    if (input.accept && input.accept.includes('image')) {
+                                        try {
+                                            const dataTransfer = new DataTransfer();
+                                            const file = new File([blob], 'pasted-image.png', {type: 'image/png'});
+                                            dataTransfer.items.add(file);
+                                            input.files = dataTransfer.files;
+                                            // change 이벤트 트리거
+                                            const changeEvent = new Event('change', { bubbles: true });
+                                            input.dispatchEvent(changeEvent);
+                                            // input 이벤트도 트리거
+                                            const inputEvent = new Event('input', { bubbles: true });
+                                            input.dispatchEvent(inputEvent);
+                                            break;
+                                        } catch (err) {
+                                            console.error('Error handling paste:', err);
+                                        }
+                                    }
+                                }
+                            };
+                            reader.readAsDataURL(blob);
+                            e.preventDefault();
+                            break;
+                        }
+                    }
+                }
+                
+                // 이벤트 리스너 등록
+                document.addEventListener('paste', handlePaste);
+                
+                // 페이지 로드 후에도 작동하도록
+                window.addEventListener('load', function() {
+                    document.addEventListener('paste', handlePaste);
+                });
+            })();
+        </script>
+    """, unsafe_allow_html=True)
+
+    # 이미지 업로드 (파일 선택 또는 붙여넣기)
+    # 이미지 처리 완료 후 초기화를 위해 별도 키 사용
+    uploader_key = "image_uploader"
+    if st.session_state.get('image_processed', False):
+        uploader_key = f"image_uploader_{len(st.session_state.messages)}"
+        st.session_state.image_processed = False
+    
     uploaded_file = st.file_uploader(
         "📷 이미지 첨부 (선택사항) - 파일 선택 또는 클립보드에서 붙여넣기(Ctrl+V)",
         type=['png', 'jpg', 'jpeg', 'gif', 'webp'],
         help="이미지 파일을 선택하거나 클립보드에서 붙여넣기(Ctrl+V)할 수 있습니다",
-        key="image_uploader"
+        key=uploader_key
     )
     
     # 이미지 미리보기 (작게 표시)
@@ -458,9 +517,8 @@ with tab1:
                         """, unsafe_allow_html=True)
                         st.session_state.messages.append({"role": "assistant", "content": response_text})
                         
-                        # 이미지 업로드 초기화 (전송 후)
-                        if 'image_uploader' in st.session_state:
-                            st.session_state.image_uploader = None
+                        # 이미지 처리 완료 플래그 설정 (다음 렌더링에서 초기화)
+                        st.session_state.image_processed = True
                         
                         # 스크롤을 맨 아래로 이동
                         st.markdown("""

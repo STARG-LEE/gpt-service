@@ -25,6 +25,25 @@ st.markdown("""
     /* 메인 컨테이너 스타일 */
     .main {
         padding: 2rem 1rem;
+        padding-bottom: 150px;
+    }
+    
+    /* 채팅 입력 필드 하단 고정 */
+    .stChatFloatingInputContainer {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        background: white !important;
+        z-index: 1000 !important;
+        padding: 1rem !important;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
+        border-top: 1px solid #e0e0e0;
+    }
+    
+    /* 채팅 메시지 컨테이너 스크롤 */
+    .element-container:has([data-testid="stChatMessage"]) {
+        margin-bottom: 1rem;
     }
     
     /* 헤더 스타일 */
@@ -265,57 +284,70 @@ with st.sidebar:
 with tab1:
     # 채팅 컨테이너
     st.markdown("""
-        <div style="max-width: 900px; margin: 0 auto;">
+        <div style="max-width: 900px; margin: 0 auto; padding-bottom: 150px;">
     """, unsafe_allow_html=True)
 
     # 채팅 메시지 표시
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            # 이미지가 포함된 메시지인지 확인
-            if isinstance(message["content"], list):
+            # 사용자 메시지인 경우에만 이미지 표시
+            if message["role"] == "user" and isinstance(message["content"], list):
                 # 멀티모달 메시지 (텍스트 + 이미지)
                 for content_item in message["content"]:
                     if content_item.get("type") == "text":
-                        st.markdown(f"""
-                            <div style="line-height: 1.6; font-size: 1rem;">
-                                {content_item["text"]}
-                            </div>
-                        """, unsafe_allow_html=True)
+                        st.write(content_item["text"])
                     elif content_item.get("type") == "image_url":
                         # 이미지 URL이 base64인 경우
                         image_url = content_item["image_url"]["url"]
                         if image_url.startswith("data:image"):
-                            # base64 이미지 디코딩 및 표시
                             try:
                                 header, encoded = image_url.split(",", 1)
                                 img_data = base64.b64decode(encoded)
                                 img = Image.open(BytesIO(img_data))
-                                st.image(img, caption="첨부된 이미지", use_container_width=True)
+                                st.image(img, caption="📷 첨부된 이미지", use_container_width=True, width=300)
                             except:
-                                st.image(image_url, caption="첨부된 이미지", use_container_width=True)
-                        else:
-                            st.image(image_url, caption="첨부된 이미지", use_container_width=True)
+                                pass
             else:
-                # 일반 텍스트 메시지
-                st.markdown(f"""
-                    <div style="line-height: 1.6; font-size: 1rem;">
-                        {message["content"]}
-                    </div>
-                """, unsafe_allow_html=True)
+                # 일반 텍스트 메시지 (어시스턴트 응답은 텍스트만)
+                if isinstance(message["content"], list):
+                    # 리스트인 경우 텍스트만 추출
+                    text_content = ""
+                    for item in message["content"]:
+                        if item.get("type") == "text":
+                            text_content = item["text"]
+                            break
+                    if text_content:
+                        st.markdown(f"""
+                            <div style="line-height: 1.6; font-size: 1rem;">
+                                {text_content}
+                            </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                        <div style="line-height: 1.6; font-size: 1rem;">
+                            {message["content"]}
+                        </div>
+                    """, unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # 이미지 업로드
+    # 이미지 업로드 (파일 또는 붙여넣기)
     uploaded_file = st.file_uploader(
-        "📷 이미지 첨부 (선택사항)",
+        "📷 이미지 첨부 (선택사항) - 파일 선택 또는 클립보드에서 붙여넣기(Ctrl+V)",
         type=['png', 'jpg', 'jpeg', 'gif', 'webp'],
-        help="이미지를 업로드하면 텍스트와 함께 AI에게 전송됩니다"
+        help="이미지 파일을 선택하거나 클립보드에서 붙여넣기(Ctrl+V)할 수 있습니다",
+        key="image_uploader"
     )
     
+    # 이미지 미리보기 (작게 표시)
     if uploaded_file is not None:
-        # 이미지 미리보기
-        image = Image.open(uploaded_file)
-        st.image(image, caption="업로드된 이미지", use_container_width=True, width=300)
+        try:
+            image = Image.open(uploaded_file)
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(image, caption="📷 업로드된 이미지", use_container_width=False, width=200)
+        except:
+            pass
 
     # 사용자 입력
     if prompt := st.chat_input("💬 메시지를 입력하세요..."):
@@ -357,10 +389,13 @@ with tab1:
                     elif item.get("type") == "image_url":
                         img_url = item["image_url"]["url"]
                         if img_url.startswith("data:image"):
-                            header, encoded = img_url.split(",", 1)
-                            img_data = base64.b64decode(encoded)
-                            img = Image.open(BytesIO(img_data))
-                            st.image(img, caption="첨부된 이미지", use_container_width=True)
+                            try:
+                                header, encoded = img_url.split(",", 1)
+                                img_data = base64.b64decode(encoded)
+                                img = Image.open(BytesIO(img_data))
+                                st.image(img, caption="📷 첨부된 이미지", use_container_width=True, width=300)
+                            except:
+                                pass
             else:
                 st.write(user_message_content)
         
@@ -375,9 +410,9 @@ with tab1:
             with st.chat_message("assistant"):
                 with st.spinner("응답을 생성하는 중..."):
                     try:
-                        # Vision API를 사용하기 위해 모델을 gpt-4o-mini로 변경 (gpt-5-mini는 vision 미지원 가능)
+                        # Vision API를 사용하기 위해 모델을 gpt-4o로 변경 (더 나은 vision 지원)
                         # 이미지가 포함된 경우 vision 지원 모델 사용
-                        model_name = "gpt-4o-mini" if isinstance(user_message_content, list) else "gpt-5-mini"
+                        model_name = "gpt-4o" if isinstance(user_message_content, list) else "gpt-5-mini"
                         
                         # 메시지 변환 (이전 메시지들도 올바른 형식으로)
                         formatted_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -422,6 +457,15 @@ with tab1:
                             </div>
                         """, unsafe_allow_html=True)
                         st.session_state.messages.append({"role": "assistant", "content": response_text})
+                        
+                        # 스크롤을 맨 아래로 이동 (JavaScript 사용)
+                        st.markdown("""
+                            <script>
+                                setTimeout(function() {
+                                    window.scrollTo(0, document.body.scrollHeight);
+                                }, 100);
+                            </script>
+                        """, unsafe_allow_html=True)
                         
                     except Exception as e:
                         error_message = f"오류가 발생했습니다: {str(e)}"

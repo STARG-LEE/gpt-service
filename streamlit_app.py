@@ -29,6 +29,8 @@ st.markdown("""
     }
     
     /* 채팅 입력 필드 하단 고정 */
+    section[data-testid="stChatInputContainer"],
+    div[data-testid="stChatInputContainer"],
     .stChatFloatingInputContainer {
         position: fixed !important;
         bottom: 0 !important;
@@ -38,7 +40,19 @@ st.markdown("""
         z-index: 1000 !important;
         padding: 1rem !important;
         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
-        border-top: 1px solid #e0e0e0;
+        border-top: 1px solid #e0e0e0 !important;
+        margin: 0 !important;
+    }
+    
+    /* 채팅 입력창이 하단에 고정되도록 */
+    div[data-testid="stChatInput"],
+    input[data-testid="stChatInput"] {
+        position: relative !important;
+    }
+    
+    /* 메인 컨테이너에 하단 패딩 추가 (입력창이 가리지 않도록) */
+    .main .block-container {
+        padding-bottom: 120px !important;
     }
     
     /* 채팅 메시지 컨테이너 스크롤 */
@@ -343,28 +357,13 @@ with tab1:
                             const blob = items[i].getAsFile();
                             const reader = new FileReader();
                             reader.onload = function(event) {
-                                // Streamlit의 file_uploader input 요소 찾기
-                                const inputs = document.querySelectorAll('input[type="file"]');
-                                for (let input of inputs) {
-                                    // 이미지 업로더인지 확인 (accept 속성 확인)
-                                    if (input.accept && input.accept.includes('image')) {
-                                        try {
-                                            const dataTransfer = new DataTransfer();
-                                            const file = new File([blob], 'pasted-image.png', {type: 'image/png'});
-                                            dataTransfer.items.add(file);
-                                            input.files = dataTransfer.files;
-                                            // change 이벤트 트리거
-                                            const changeEvent = new Event('change', { bubbles: true });
-                                            input.dispatchEvent(changeEvent);
-                                            // input 이벤트도 트리거
-                                            const inputEvent = new Event('input', { bubbles: true });
-                                            input.dispatchEvent(inputEvent);
-                                            break;
-                                        } catch (err) {
-                                            console.error('Error handling paste:', err);
-                                        }
-                                    }
-                                }
+                                const base64 = event.target.result;
+                                // URL 파라미터를 통해 이미지 전달
+                                const url = new URL(window.location);
+                                url.searchParams.set('pasted_image', encodeURIComponent(base64));
+                                window.history.pushState({}, '', url);
+                                // 페이지 새로고침 대신 Streamlit에 알림
+                                window.location.reload();
                             };
                             reader.readAsDataURL(blob);
                             e.preventDefault();
@@ -373,51 +372,61 @@ with tab1:
                     }
                 }
                 
-                // 이벤트 리스너 등록
-                document.addEventListener('paste', handlePaste);
+                // 이벤트 리스너 등록 (전역)
+                document.addEventListener('paste', handlePaste, true);
                 
                 // 페이지 로드 후에도 작동하도록
                 window.addEventListener('load', function() {
-                    document.addEventListener('paste', handlePaste);
+                    document.addEventListener('paste', handlePaste, true);
                 });
             })();
         </script>
     """, unsafe_allow_html=True)
-
-    # 이미지 업로드 (파일 선택 또는 붙여넣기)
-    # 이미지 처리 완료 후 초기화를 위해 별도 키 사용
-    uploader_key = "image_uploader"
-    if st.session_state.get('image_processed', False):
-        uploader_key = f"image_uploader_{len(st.session_state.messages)}"
-        st.session_state.image_processed = False
     
-    uploaded_file = st.file_uploader(
-        "📷 이미지 첨부 (선택사항) - 파일 선택 또는 클립보드에서 붙여넣기(Ctrl+V)",
-        type=['png', 'jpg', 'jpeg', 'gif', 'webp'],
-        help="이미지 파일을 선택하거나 클립보드에서 붙여넣기(Ctrl+V)할 수 있습니다",
-        key=uploader_key
-    )
-    
-    # 이미지 미리보기 (작게 표시)
-    if uploaded_file is not None:
+    # URL 파라미터에서 붙여넣은 이미지 가져오기
+    query_params = st.query_params
+    if 'pasted_image' in query_params:
         try:
-            image = Image.open(uploaded_file)
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                st.image(image, caption="📷 업로드된 이미지", use_container_width=False, width=200)
+            pasted_image_data = query_params['pasted_image']
+            # URL 디코딩
+            if isinstance(pasted_image_data, str):
+                pasted_image_data = pasted_image_data.replace('%2B', '+').replace('%2F', '/').replace('%3D', '=')
+            st.session_state.pasted_image = pasted_image_data
+            # URL 파라미터 제거
+            st.query_params.clear()
+            st.rerun()
         except:
             pass
+    
+    # 붙여넣은 이미지 미리보기 표시
+    if 'pasted_image' in st.session_state and st.session_state.pasted_image is not None:
+        try:
+            img_data = base64.b64decode(st.session_state.pasted_image.split(',')[1])
+            img = Image.open(BytesIO(img_data))
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(img, caption="📷 붙여넣은 이미지 (Ctrl+V로 붙여넣기)", use_container_width=False, width=200)
+                if st.button("❌ 이미지 제거", key="remove_image"):
+                    st.session_state.pasted_image = None
+                    st.rerun()
+        except Exception as e:
+            # 이미지 파싱 오류 시 초기화
+            if 'pasted_image' in st.session_state:
+                st.session_state.pasted_image = None
 
     # 사용자 입력
-    if prompt := st.chat_input("💬 메시지를 입력하세요..."):
+    if prompt := st.chat_input("💬 메시지를 입력하세요... (이미지는 Ctrl+V로 붙여넣기 가능)"):
         # 사용자 메시지 구성
         user_message_content = []
         
+        # 붙여넣은 이미지가 있으면 포함
+        pasted_image = st.session_state.get('pasted_image', None)
+        
         # 이미지가 있으면 포함
-        if uploaded_file is not None:
+        if pasted_image is not None:
             try:
-                img_base64 = encode_image(uploaded_file)
-                img_data_url = f"data:image/png;base64,{img_base64}"
+                # base64 이미지 데이터 사용
+                img_data_url = pasted_image
                 
                 # 멀티모달 메시지 형식으로 구성
                 user_message_content = [
@@ -517,8 +526,9 @@ with tab1:
                         """, unsafe_allow_html=True)
                         st.session_state.messages.append({"role": "assistant", "content": response_text})
                         
-                        # 이미지 처리 완료 플래그 설정 (다음 렌더링에서 초기화)
-                        st.session_state.image_processed = True
+                        # 이미지 처리 완료 후 초기화
+                        if 'pasted_image' in st.session_state:
+                            st.session_state.pasted_image = None
                         
                         # 스크롤을 맨 아래로 이동
                         st.markdown("""

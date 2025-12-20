@@ -408,7 +408,7 @@ with tab1:
     )
     
     # 클립보드 이미지 붙여넣기 지원을 위한 JavaScript (페이지 로드 시 실행)
-    components.html("""
+    st.markdown("""
         <script>
             (function() {
                 let pasteHandlerActive = true;
@@ -571,7 +571,7 @@ with tab1:
                 }
             })();
         </script>
-    """, height=0, key="paste_and_fix_handler")
+    """, unsafe_allow_html=True)
     
     # 업로드된 파일이 있으면 session_state에 저장
     if uploaded_file is not None:

@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="GPT Text Service",
     page_icon="🤖",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # 커스텀 CSS
@@ -28,7 +28,22 @@ st.markdown("""
         padding-bottom: 150px;
     }
     
-    /* 채팅 입력 필드 하단 플로팅 고정 (GPT UI 스타일) - 모든 가능한 선택자 사용 */
+    /* 사이드바가 펼쳐져 있을 때 메인 콘텐츠 영역 조정 */
+    section[data-testid="stSidebar"][aria-expanded="true"] ~ .main,
+    section[data-testid="stSidebar"]:not([aria-expanded="false"]) ~ .main {
+        margin-left: 21rem !important;
+        transition: margin-left 0.3s ease !important;
+    }
+    
+    /* 사이드바가 접혀있을 때 메인 콘텐츠 전체 화면 */
+    section[data-testid="stSidebar"][aria-expanded="false"] ~ .main,
+    section[data-testid="stSidebar"][aria-expanded="false"] + .main {
+        margin-left: 0 !important;
+        width: 100% !important;
+        transition: margin-left 0.3s ease !important;
+    }
+    
+    /* 채팅 입력 필드 하단 플로팅 고정 (GPT UI 스타일) - 사이드바 상태에 따라 조정 */
     section[data-testid="stChatInputContainer"],
     div[data-testid="stChatInputContainer"],
     .stChatFloatingInputContainer,
@@ -39,8 +54,6 @@ st.markdown("""
     div:has(form[data-testid="stChatInputForm"]) {
         position: fixed !important;
         bottom: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
         background: white !important;
         z-index: 99999 !important;
         padding: 1rem !important;
@@ -48,8 +61,23 @@ st.markdown("""
         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
         border-top: 1px solid #e0e0e0 !important;
         margin: 0 !important;
+        transition: left 0.3s ease, right 0.3s ease, width 0.3s ease !important;
+    }
+    
+    /* 사이드바가 펼쳐져 있을 때 채팅 입력창 위치 조정 */
+    section[data-testid="stSidebar"][aria-expanded="true"] ~ * section[data-testid="stChatInputContainer"],
+    section[data-testid="stSidebar"]:not([aria-expanded="false"]) ~ * section[data-testid="stChatInputContainer"] {
+        left: 21rem !important;
+        right: 0 !important;
+        width: calc(100% - 21rem) !important;
+    }
+    
+    /* 사이드바가 접혀있을 때 채팅 입력창 전체 화면 */
+    section[data-testid="stSidebar"][aria-expanded="false"] ~ * section[data-testid="stChatInputContainer"],
+    section[data-testid="stSidebar"][aria-expanded="false"] + * section[data-testid="stChatInputContainer"] {
+        left: 0 !important;
+        right: 0 !important;
         width: 100% !important;
-        max-width: 100% !important;
     }
     
     /* 채팅 입력창이 하단에 고정되도록 */
@@ -486,25 +514,60 @@ with tab1:
                 });
                 observer.observe(document.body, { childList: true, subtree: true });
                 
-                // 채팅 입력창 하단 고정 강제 적용
+                // 채팅 입력창 하단 고정 강제 적용 (사이드바 상태에 따라 조정)
                 function fixChatInputPosition() {
                     const chatInputs = document.querySelectorAll('[data-testid="stChatInputContainer"], section[data-testid="stChatInputContainer"]');
+                    const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+                    const isSidebarExpanded = sidebar && sidebar.getAttribute('aria-expanded') === 'true';
+                    const sidebarWidth = isSidebarExpanded ? '21rem' : '0';
+                    
                     chatInputs.forEach(el => {
                         el.style.position = 'fixed';
                         el.style.bottom = '0';
-                        el.style.left = '0';
-                        el.style.right = '0';
                         el.style.zIndex = '99999';
                         el.style.background = 'white';
                         el.style.padding = '1rem';
                         el.style.boxShadow = '0 -2px 10px rgba(0, 0, 0, 0.1)';
                         el.style.borderTop = '1px solid #e0e0e0';
+                        el.style.transition = 'left 0.3s ease, right 0.3s ease, width 0.3s ease';
+                        
+                        if (isSidebarExpanded) {
+                            el.style.left = sidebarWidth;
+                            el.style.right = '0';
+                            el.style.width = 'calc(100% - ' + sidebarWidth + ')';
+                        } else {
+                            el.style.left = '0';
+                            el.style.right = '0';
+                            el.style.width = '100%';
+                        }
                     });
+                    
+                    // 메인 콘텐츠 영역도 조정
+                    const mainContent = document.querySelector('.main');
+                    if (mainContent) {
+                        if (isSidebarExpanded) {
+                            mainContent.style.marginLeft = sidebarWidth;
+                            mainContent.style.transition = 'margin-left 0.3s ease';
+                        } else {
+                            mainContent.style.marginLeft = '0';
+                            mainContent.style.transition = 'margin-left 0.3s ease';
+                        }
+                    }
                 }
                 
                 // 주기적으로 채팅 입력창 위치 확인 및 수정
                 setInterval(fixChatInputPosition, 100);
                 fixChatInputPosition();
+                
+                // 사이드바 토글 이벤트 감지
+                const sidebarObserver = new MutationObserver(function(mutations) {
+                    fixChatInputPosition();
+                });
+                
+                const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+                if (sidebar) {
+                    sidebarObserver.observe(sidebar, { attributes: true, attributeFilter: ['aria-expanded'] });
+                }
             })();
         </script>
     """, height=0, key="paste_and_fix_handler")

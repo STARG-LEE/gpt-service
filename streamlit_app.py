@@ -25,8 +25,8 @@ st.markdown("""
     <style>
     /* 메인 컨테이너 스타일 */
     .main {
-        padding: 2rem 1rem;
-        padding-bottom: 150px;
+        padding: 1rem 0.5rem;
+        padding-bottom: 100px;
     }
     
     /* 사이드바가 펼쳐져 있을 때 메인 콘텐츠 영역 조정 */
@@ -78,24 +78,25 @@ st.markdown("""
     
     /* 메인 컨테이너에 하단 패딩 추가 (입력창이 가리지 않도록) */
     .main .block-container {
-        padding-bottom: 150px !important;
+        padding-bottom: 100px !important;
+        padding-top: 0.5rem !important;
     }
     
     /* 스크롤 가능한 영역 */
     .main {
         overflow-y: auto !important;
         height: 100vh !important;
-        padding-bottom: 150px !important;
+        padding-bottom: 100px !important;
     }
     
     /* 채팅 메시지 영역 스크롤 */
     div[data-testid="stVerticalBlock"] {
-        padding-bottom: 150px !important;
+        padding-bottom: 100px !important;
     }
     
     /* Streamlit 앱 컨테이너 */
     #root > div {
-        padding-bottom: 150px !important;
+        padding-bottom: 100px !important;
     }
     
     /* 채팅 메시지 컨테이너 스크롤 */
@@ -109,18 +110,19 @@ st.markdown("""
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        font-size: 3rem;
+        font-size: 2.5rem;
         font-weight: 700;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
+        margin-top: 0.25rem;
         text-align: center;
     }
     
     /* 채팅 메시지 스타일 개선 */
     .stChatMessage {
-        padding: 1rem;
-        border-radius: 15px;
-        margin: 1rem 0;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 0.75rem;
+        border-radius: 12px;
+        margin: 0.5rem 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     }
     
     /* 사용자 메시지 */
@@ -341,7 +343,7 @@ with st.sidebar:
 with tab1:
     # 채팅 컨테이너
     st.markdown("""
-        <div style="max-width: 900px; margin: 0 auto; padding-bottom: 150px;">
+        <div style="max-width: 900px; margin: 0 auto; padding-bottom: 100px;">
     """, unsafe_allow_html=True)
 
     # 채팅 메시지 표시
@@ -390,9 +392,9 @@ with tab1:
 
     # 파일 업로드 (파일 선택)
     uploaded_file = st.file_uploader(
-        "📷 이미지 첨부 (선택사항) - 파일 선택 또는 Ctrl+V로 붙여넣기",
+        "📷 이미지 첨부 (선택사항)",
         type=['png', 'jpg', 'jpeg', 'gif', 'webp'],
-        help="이미지 파일을 선택하거나 클립보드에서 붙여넣기(Ctrl+V)할 수 있습니다",
+        help="이미지 파일을 선택하세요",
         key="image_uploader"
     )
     
@@ -588,7 +590,7 @@ with tab1:
                 st.session_state.uploaded_image = None
 
     # 사용자 입력
-    if prompt := st.chat_input("💬 메시지를 입력하세요... (이미지는 파일 선택 또는 Ctrl+V로 붙여넣기 가능)"):
+    if prompt := st.chat_input("💬 메시지를 입력하세요..."):
         # 사용자 메시지 구성
         user_message_content = []
         

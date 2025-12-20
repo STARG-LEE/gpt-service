@@ -150,6 +150,6 @@ with gr.Blocks(title="GPT Text Service", theme=gr.themes.Soft()) as demo:
     clear_btn.click(lambda: ([], None), None, [chatbot, image_input])
 
 
-if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False)
+# Hugging Face Spaces에서는 demo를 직접 export
+# app.py에서 import하여 사용
 

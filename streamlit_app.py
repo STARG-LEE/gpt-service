@@ -28,22 +28,25 @@ st.markdown("""
         padding-bottom: 150px;
     }
     
-    /* 채팅 입력 필드 하단 플로팅 고정 (GPT UI 스타일) */
+    /* 채팅 입력 필드 하단 플로팅 고정 (GPT UI 스타일) - 모든 가능한 선택자 사용 */
     section[data-testid="stChatInputContainer"],
     div[data-testid="stChatInputContainer"],
     .stChatFloatingInputContainer,
-    div[data-baseweb="input"]:has([data-testid="stChatInput"]) {
+    div[data-baseweb="input"]:has([data-testid="stChatInput"]),
+    form[data-testid="stChatInputForm"],
+    div:has([data-testid="stChatInput"]) {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
         background: white !important;
-        z-index: 9999 !important;
+        z-index: 99999 !important;
         padding: 1rem !important;
         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1) !important;
         border-top: 1px solid #e0e0e0 !important;
         margin: 0 !important;
         width: 100% !important;
+        max-width: 100% !important;
     }
     
     /* 채팅 입력창이 하단에 고정되도록 */
@@ -54,13 +57,18 @@ st.markdown("""
     
     /* 메인 컨테이너에 하단 패딩 추가 (입력창이 가리지 않도록) */
     .main .block-container {
-        padding-bottom: 120px !important;
+        padding-bottom: 150px !important;
     }
     
     /* 스크롤 가능한 영역 */
     .main {
         overflow-y: auto !important;
         height: 100vh !important;
+    }
+    
+    /* 채팅 메시지 영역 스크롤 */
+    div[data-testid="stVerticalBlock"] {
+        padding-bottom: 150px !important;
     }
     
     /* 채팅 메시지 컨테이너 스크롤 */
@@ -361,44 +369,53 @@ with tab1:
         key="image_uploader"
     )
     
-    # 클립보드 이미지 붙여넣기 지원을 위한 JavaScript
+    # 클립보드 이미지 붙여넣기 지원을 위한 JavaScript (개선된 버전)
     st.markdown("""
         <script>
             (function() {
+                let pasteHandlerActive = true;
+                
                 // 클립보드 붙여넣기 이벤트 리스너
                 function handlePaste(e) {
+                    if (!pasteHandlerActive) return;
+                    
                     const items = e.clipboardData.items;
                     for (let i = 0; i < items.length; i++) {
                         if (items[i].type.indexOf('image') !== -1) {
                             const blob = items[i].getAsFile();
                             
-                            // file_uploader의 input 요소 찾기 (더 정확한 선택자 사용)
-                            setTimeout(function() {
+                            // file_uploader의 input 요소 찾기
+                            function trySetFile() {
                                 const inputs = document.querySelectorAll('input[type="file"]');
                                 for (let input of inputs) {
                                     // 이미지 업로더인지 확인
-                                    if (input.accept && (input.accept.includes('image') || input.accept.includes('png') || input.accept.includes('jpg'))) {
+                                    if (input.accept && (input.accept.includes('image') || input.accept.includes('png') || input.accept.includes('jpg') || input.accept.includes('jpeg'))) {
                                         try {
                                             // DataTransfer를 사용하여 파일 설정
                                             const dataTransfer = new DataTransfer();
                                             const file = new File([blob], 'pasted-image.png', {type: 'image/png'});
                                             dataTransfer.items.add(file);
                                             
-                                            // Object.defineProperty를 사용하여 files 속성 설정
-                                            Object.defineProperty(input, 'files', {
-                                                value: dataTransfer.files,
-                                                writable: false,
-                                                configurable: true
+                                            // files 속성 직접 설정 시도
+                                            try {
+                                                input.files = dataTransfer.files;
+                                            } catch (err1) {
+                                                // Object.defineProperty 사용
+                                                Object.defineProperty(input, 'files', {
+                                                    value: dataTransfer.files,
+                                                    writable: true,
+                                                    configurable: true
+                                                });
+                                            }
+                                            
+                                            // 여러 이벤트 트리거
+                                            const events = ['change', 'input', 'blur', 'focus'];
+                                            events.forEach(eventType => {
+                                                const event = new Event(eventType, { bubbles: true, cancelable: true });
+                                                input.dispatchEvent(event);
                                             });
                                             
-                                            // change 이벤트 트리거 (여러 방법 시도)
-                                            const changeEvent = new Event('change', { bubbles: true, cancelable: true });
-                                            input.dispatchEvent(changeEvent);
-                                            
-                                            const inputEvent = new Event('input', { bubbles: true, cancelable: true });
-                                            input.dispatchEvent(inputEvent);
-                                            
-                                            // Streamlit이 인식할 수 있도록 추가 이벤트
+                                            // Streamlit 커스텀 이벤트
                                             const customEvent = new CustomEvent('streamlit:fileUploaderChanged', {
                                                 bubbles: true,
                                                 detail: { files: dataTransfer.files }
@@ -406,24 +423,32 @@ with tab1:
                                             input.dispatchEvent(customEvent);
                                             
                                             // 시각적 피드백
-                                            const uploaderContainer = input.closest('[data-testid="stFileUploader"]') || input.parentElement;
+                                            const uploaderContainer = input.closest('[data-testid="stFileUploader"]') || input.parentElement || input;
                                             if (uploaderContainer) {
-                                                uploaderContainer.style.border = '2px solid #667eea';
+                                                uploaderContainer.style.border = '3px solid #667eea';
                                                 uploaderContainer.style.transition = 'border 0.3s';
                                                 setTimeout(() => {
                                                     uploaderContainer.style.border = '';
                                                 }, 2000);
                                             }
                                             
-                                            console.log('Image pasted successfully');
+                                            console.log('✅ Image pasted successfully');
                                             e.preventDefault();
-                                            return;
+                                            return true;
                                         } catch (err) {
-                                            console.error('Error handling paste:', err);
+                                            console.error('❌ Error handling paste:', err);
                                         }
                                     }
                                 }
-                            }, 100);
+                                return false;
+                            }
+                            
+                            // 여러 번 시도
+                            if (!trySetFile()) {
+                                setTimeout(() => trySetFile(), 50);
+                                setTimeout(() => trySetFile(), 200);
+                                setTimeout(() => trySetFile(), 500);
+                            }
                             
                             e.preventDefault();
                             break;
@@ -431,21 +456,22 @@ with tab1:
                     }
                 }
                 
-                // 이벤트 리스너 등록 (전역, 캡처 단계에서)
-                document.addEventListener('paste', handlePaste, true);
-                
-                // 페이지 로드 후에도 작동하도록
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', function() {
-                        document.addEventListener('paste', handlePaste, true);
-                    });
-                } else {
+                // 이벤트 리스너 등록
+                function setupPasteHandler() {
                     document.addEventListener('paste', handlePaste, true);
+                }
+                
+                // 즉시 등록
+                setupPasteHandler();
+                
+                // 페이지 로드 후에도 등록
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', setupPasteHandler);
                 }
                 
                 // Streamlit이 동적으로 요소를 추가할 때를 대비
                 const observer = new MutationObserver(function(mutations) {
-                    // 새로운 input 요소가 추가될 때마다 이벤트 리스너 확인
+                    setupPasteHandler();
                 });
                 observer.observe(document.body, { childList: true, subtree: true });
             })();
@@ -613,16 +639,36 @@ with tab1:
                         if 'uploaded_image' in st.session_state:
                             st.session_state.uploaded_image = None
                         
-                        # 스크롤을 맨 아래로 이동
+                        # 스크롤을 맨 아래로 이동 (더 강력한 방법)
                         st.markdown("""
                             <script>
-                                setTimeout(function() {
+                                function scrollToBottom() {
+                                    // 여러 방법으로 스크롤 시도
                                     window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});
-                                    const chatInput = document.querySelector('[data-testid="stChatInputContainer"]');
-                                    if (chatInput) {
-                                        chatInput.scrollIntoView({behavior: 'smooth', block: 'end'});
+                                    window.scrollTo({top: document.documentElement.scrollHeight, behavior: 'smooth'});
+                                    
+                                    // 채팅 메시지 컨테이너 찾기
+                                    const chatMessages = document.querySelectorAll('[data-testid="stChatMessage"]');
+                                    if (chatMessages.length > 0) {
+                                        const lastMessage = chatMessages[chatMessages.length - 1];
+                                        lastMessage.scrollIntoView({behavior: 'smooth', block: 'end'});
                                     }
-                                }, 500);
+                                    
+                                    // 메인 컨테이너 스크롤
+                                    const mainContainer = document.querySelector('.main');
+                                    if (mainContainer) {
+                                        mainContainer.scrollTop = mainContainer.scrollHeight;
+                                    }
+                                }
+                                
+                                // 즉시 실행
+                                scrollToBottom();
+                                
+                                // 약간의 지연 후 다시 실행 (동적 콘텐츠 로딩 대기)
+                                setTimeout(scrollToBottom, 100);
+                                setTimeout(scrollToBottom, 300);
+                                setTimeout(scrollToBottom, 500);
+                                setTimeout(scrollToBottom, 1000);
                             </script>
                         """, unsafe_allow_html=True)
                         

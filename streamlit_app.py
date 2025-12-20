@@ -398,156 +398,84 @@ with tab1:
         key="image_uploader"
     )
     
-    # 클립보드 이미지 붙여넣기 지원을 위한 JavaScript (페이지 로드 시 실행)
-    st.markdown("""
-        <script>
-            (function() {
-                let pasteHandlerActive = true;
+    # 이미지 붙여넣기 Custom Component (방법 2: components.v1.html 사용)
+    paste_image_html = """
+    <div id="paste-image-container" style="display: none;"></div>
+    <script>
+        (function() {
+            // 클립보드 이미지 붙여넣기 이벤트 리스너
+            function handlePaste(e) {
+                const items = Array.from(e.clipboardData.items);
+                const imageItem = items.find(item => item.type.startsWith('image/'));
                 
-                // 클립보드 붙여넣기 이벤트 리스너
-                function handlePaste(e) {
-                    if (!pasteHandlerActive) return;
+                if (!imageItem) return;
+                
+                const file = imageItem.getAsFile();
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    const base64Image = event.target.result;
                     
-                    const items = e.clipboardData.items;
-                    for (let i = 0; i < items.length; i++) {
-                        if (items[i].type.indexOf('image') !== -1) {
-                            const blob = items[i].getAsFile();
-                            
-                            // file_uploader의 input 요소 찾기
-                            function trySetFile() {
-                                const inputs = document.querySelectorAll('input[type="file"]');
-                                for (let input of inputs) {
-                                    // 이미지 업로더인지 확인
-                                    if (input.accept && (input.accept.includes('image') || input.accept.includes('png') || input.accept.includes('jpg') || input.accept.includes('jpeg'))) {
-                                        try {
-                                            // DataTransfer를 사용하여 파일 설정
-                                            const dataTransfer = new DataTransfer();
-                                            const file = new File([blob], 'pasted-image.png', {type: 'image/png'});
-                                            dataTransfer.items.add(file);
-                                            
-                                            // files 속성 직접 설정 시도
-                                            try {
-                                                input.files = dataTransfer.files;
-                                            } catch (err1) {
-                                                // Object.defineProperty 사용
-                                                Object.defineProperty(input, 'files', {
-                                                    value: dataTransfer.files,
-                                                    writable: true,
-                                                    configurable: true
-                                                });
-                                            }
-                                            
-                                            // 여러 이벤트 트리거
-                                            const events = ['change', 'input', 'blur', 'focus'];
-                                            events.forEach(eventType => {
-                                                const event = new Event(eventType, { bubbles: true, cancelable: true });
-                                                input.dispatchEvent(event);
-                                            });
-                                            
-                                            // Streamlit 커스텀 이벤트
-                                            const customEvent = new CustomEvent('streamlit:fileUploaderChanged', {
-                                                bubbles: true,
-                                                detail: { files: dataTransfer.files }
-                                            });
-                                            input.dispatchEvent(customEvent);
-                                            
-                                            // 시각적 피드백
-                                            const uploaderContainer = input.closest('[data-testid="stFileUploader"]') || input.parentElement || input;
-                                            if (uploaderContainer) {
-                                                uploaderContainer.style.border = '3px solid #667eea';
-                                                uploaderContainer.style.transition = 'border 0.3s';
-                                                setTimeout(() => {
-                                                    uploaderContainer.style.border = '';
-                                                }, 2000);
-                                            }
-                                            
-                                            console.log('✅ Image pasted successfully');
-                                            e.preventDefault();
-                                            return true;
-                                        } catch (err) {
-                                            console.error('❌ Error handling paste:', err);
-                                        }
-                                    }
-                                }
-                                return false;
-                            }
-                            
-                            // 여러 번 시도
-                            if (!trySetFile()) {
-                                setTimeout(() => trySetFile(), 50);
-                                setTimeout(() => trySetFile(), 200);
-                                setTimeout(() => trySetFile(), 500);
-                            }
-                            
-                            e.preventDefault();
-                            break;
-                        }
+                    // Streamlit에 값 전달
+                    window.parent.postMessage({
+                        type: 'streamlit:setComponentValue',
+                        value: base64Image
+                    }, '*');
+                };
+                
+                reader.readAsDataURL(file);
+                e.preventDefault();
+            }
+            
+            // 전역 paste 이벤트 리스너 등록
+            document.addEventListener('paste', handlePaste, true);
+            
+            // 채팅 입력창 하단 고정 (CSS로 대부분 처리, JavaScript는 최소한만)
+            function ensureChatInputFixed() {
+                const chatInputs = document.querySelectorAll('section[data-testid="stChatInputContainer"]');
+                chatInputs.forEach(el => {
+                    if (el.style.position !== 'fixed') {
+                        el.style.position = 'fixed';
+                        el.style.bottom = '0';
+                        el.style.zIndex = '99999';
+                        el.style.background = 'white';
                     }
-                }
-                
-                // 이벤트 리스너 등록
-                function setupPasteHandler() {
-                    document.addEventListener('paste', handlePaste, true);
-                }
-                
-                // 즉시 등록
-                setupPasteHandler();
-                
-                // 페이지 로드 후에도 등록
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', setupPasteHandler);
-                } else {
-                    setupPasteHandler();
-                }
-                
-                // Streamlit이 동적으로 요소를 추가할 때를 대비
-                const observer = new MutationObserver(function(mutations) {
-                    setupPasteHandler();
                 });
-                observer.observe(document.body, { childList: true, subtree: true });
-                
-                // 채팅 입력창 하단 고정 (CSS로 대부분 처리, JavaScript는 최소한만)
-                function ensureChatInputFixed() {
-                    const chatInputs = document.querySelectorAll('section[data-testid="stChatInputContainer"]');
-                    chatInputs.forEach(el => {
-                        // 기본 스타일만 확인 (CSS가 대부분 처리)
-                        if (el.style.position !== 'fixed') {
-                            el.style.position = 'fixed';
-                            el.style.bottom = '0';
-                            el.style.zIndex = '99999';
-                            el.style.background = 'white';
-                        }
-                    });
-                }
-                
-                // 초기 실행
+            }
+            
+            // 초기 실행
+            ensureChatInputFixed();
+            
+            // 사이드바 상태 변경 감지 (이벤트 기반만)
+            const sidebarObserver = new MutationObserver(function(mutations) {
                 ensureChatInputFixed();
-                
-                // 사이드바 상태 변경 감지 (이벤트 기반만)
-                const sidebarObserver = new MutationObserver(function(mutations) {
-                    // 사이드바 상태가 변경될 때만 실행
-                    ensureChatInputFixed();
-                });
-                
-                // 사이드바 요소 찾기 및 관찰
-                function setupSidebarObserver() {
-                    const sidebar = document.querySelector('section[data-testid="stSidebar"]');
-                    if (sidebar) {
-                        sidebarObserver.observe(sidebar, { 
-                            attributes: true, 
-                            attributeFilter: ['aria-expanded'],
-                            attributeOldValue: false
-                        });
-                    } else {
-                        // 사이드바가 아직 로드되지 않았으면 잠시 후 재시도
-                        setTimeout(setupSidebarObserver, 500);
-                    }
+            });
+            
+            // 사이드바 요소 찾기 및 관찰
+            function setupSidebarObserver() {
+                const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+                if (sidebar) {
+                    sidebarObserver.observe(sidebar, { 
+                        attributes: true, 
+                        attributeFilter: ['aria-expanded'],
+                        attributeOldValue: false
+                    });
+                } else {
+                    setTimeout(setupSidebarObserver, 500);
                 }
-                
-                setupSidebarObserver();
-            })();
-        </script>
-    """, unsafe_allow_html=True)
+            }
+            
+            setupSidebarObserver();
+        })();
+    </script>
+    """
+    
+    # components.v1.html을 사용하여 이미지 붙여넣기 처리
+    pasted_image_data = components.html(paste_image_html, height=0, key="paste_image_handler")
+    
+    # 붙여넣은 이미지가 있으면 session_state에 저장
+    if pasted_image_data and isinstance(pasted_image_data, str) and pasted_image_data.startswith('data:image'):
+        st.session_state.pasted_image = pasted_image_data
     
     # 업로드된 파일이 있으면 session_state에 저장
     if uploaded_file is not None:

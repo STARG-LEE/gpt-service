@@ -65,23 +65,33 @@
 
 ---
 
-## 4. Render
+## 4. Render ⭐ (Gradio 앱 추천)
 
 **장점:**
 - 무료 티어 제공
 - 자동 HTTPS
 - 쉬운 설정
+- **이미지 붙여넣기 완벽 지원** ✅
 
 **배포 방법:**
 1. https://render.com 접속
 2. "New" → "Web Service"
 3. GitHub 저장소 연결
 4. 설정:
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: 
-     - Gradio: `python gradio_app.py`
-     - FastAPI: `uvicorn app:app --host 0.0.0.0 --port $PORT`
-5. 환경 변수: `OPENAI_API_KEY` 추가
+   - **Name**: `gpt-service` (원하는 이름)
+   - **Environment**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `python gradio_app.py`
+   - **Plan**: Free 선택
+5. 환경 변수 추가:
+   - Key: `OPENAI_API_KEY`
+   - Value: 실제 API 키 입력
+6. "Create Web Service" 클릭
+
+**참고:**
+- Render는 자동으로 `$PORT` 환경 변수를 제공하지만, Gradio는 기본적으로 7860 포트를 사용합니다.
+- `gradio_app.py`는 Render의 포트를 자동으로 감지하도록 수정되어 있습니다.
+- 이미지 붙여넣기(Ctrl+V)는 Gradio의 기본 기능이므로 Render에서도 완벽하게 작동합니다! ✅
 
 ---
 

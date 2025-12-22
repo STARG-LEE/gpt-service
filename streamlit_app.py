@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import os
 import re
 import requests
+import time
 import base64
 from io import BytesIO
 from PIL import Image
@@ -239,6 +240,16 @@ SYSTEM_PROMPT = """당신은 친절하고 도움이 되는 AI 어시스턴트입
 6. 문장 사이는 자연스럽게 연결하고, 필요할 때만 줄바꿈을 사용하세요
 
 웹 인터페이스에서 바로 표시될 수 있도록 깔끔하고 간결한 형식으로 답변해주세요."""
+
+def call_openai_with_retry(client, api_params, max_retries=3, wait_sec=2):
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            return client.chat.completions.create(**api_params)
+        except Exception as e:
+            last_error = e
+            time.sleep(wait_sec)
+    raise last_error
 
 # OpenAI 클라이언트 초기화
 @st.cache_resource
@@ -577,7 +588,12 @@ with tab1:
                         # 다른 모델을 사용할 경우를 대비해 주석 처리
                         # api_params["temperature"] = temperature
                         
-                        response = client.chat.completions.create(**api_params)
+                        response = call_openai_with_retry(
+                            client,
+                            api_params,
+                            max_retries=3,
+                            wait_sec=2
+                        )
                         
                         response_text = response.choices[0].message.content
                         

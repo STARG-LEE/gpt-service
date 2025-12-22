@@ -337,7 +337,7 @@ with st.sidebar:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    if st.button("🗑️ 대화 기록 지우기", use_container_width=True):
+    if st.button("🗑️ 대화 기록 지우기", width="stretch"):
         st.session_state.messages = [
             {"role": "assistant", "content": "안녕하세요! 무엇을 도와드릴까요?"}
         ]
@@ -374,7 +374,7 @@ with tab1:
                                 header, encoded = image_url.split(",", 1)
                                 img_data = base64.b64decode(encoded)
                                 img = Image.open(BytesIO(img_data))
-                                st.image(img, caption="📷 첨부된 이미지", use_container_width=True, width=300)
+                                st.image(img, caption="📷 첨부된 이미지", width=300)
                             except:
                                 pass
             else:
@@ -479,7 +479,7 @@ with tab1:
             img = Image.open(BytesIO(img_data))
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                st.image(img, caption=f"📷 {image_source} 이미지", use_container_width=False, width=200)
+                st.image(img, caption=f"📷 {image_source} 이미지", width=200)
                 if st.button("❌ 이미지 제거", key="remove_image"):
                     if 'pasted_image' in st.session_state:
                         st.session_state.pasted_image = None
@@ -543,7 +543,7 @@ with tab1:
                                 header, encoded = img_url.split(",", 1)
                                 img_data = base64.b64decode(encoded)
                                 img = Image.open(BytesIO(img_data))
-                                st.image(img, caption="📷 첨부된 이미지", use_container_width=True, width=300)
+                                st.image(img, caption="📷 첨부된 이미지", width=300)
                             except:
                                 pass
             else:
@@ -696,7 +696,7 @@ with tab2:
         height=100
     )
     
-    if st.button("🖼️ 이미지 생성", type="primary", use_container_width=True):
+    if st.button("🖼️ 이미지 생성", type="primary", width="stretch"):
         if not image_prompt:
             st.warning("이미지 설명을 입력해주세요.")
         else:
@@ -728,7 +728,7 @@ with tab2:
                         
                         # 생성된 이미지 표시
                         st.markdown("### 생성된 이미지")
-                        st.image(image_url, caption=image_prompt, use_container_width=True)
+                        st.image(image_url, caption=image_prompt, width="stretch")
                         
                         # 이미지 데이터 가져오기
                         try:
@@ -767,7 +767,7 @@ with tab2:
         st.markdown("### 📚 생성 기록")
         for idx, img_data in enumerate(reversed(st.session_state.generated_images[-5:]), 1):
             with st.expander(f"이미지 {len(st.session_state.generated_images) - len(st.session_state.generated_images[-5:]) + idx}: {img_data['prompt'][:50]}..."):
-                st.image(img_data["url"], use_container_width=True)
+                st.image(img_data["url"], width="stretch")
                 st.caption(f"모델: {img_data['model']} | 크기: {img_data['size']}")
 
 # 푸터

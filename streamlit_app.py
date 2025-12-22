@@ -25,9 +25,7 @@ st.markdown("""
     font-size: 0.95rem;
 ">
     📚 강의 참고 자료:
-    <a href="https://platform.openai.com/docs" target="_blank">OpenAI Docs</a> |
-    <a href="https://docs.streamlit.io" target="_blank">Streamlit Docs</a> |
-    <a href="https://stackoverflow.com/questions/tagged/streamlit" target="_blank">StackOverflow</a>
+    <a href="https://slashpage.com/ai-for-lab?e=1&v=126emg" target="_blank">DK Slash URL</a>
 </div>
 """, unsafe_allow_html=True)
 

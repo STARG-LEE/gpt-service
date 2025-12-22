@@ -597,8 +597,7 @@ with tab1:
                         # gpt-5-mini는 temperature를 지원하지 않으므로 파라미터에서 제외
                         api_params = {
                             "model": model_name,
-                            "input": formatted_messages,
-                            "max_output_tokens": 1000
+                            "input": formatted_messages
                         }
                         # temperature는 gpt-5-mini에서 지원하지 않으므로 제외
                         # 다른 모델을 사용할 경우를 대비해 주석 처리

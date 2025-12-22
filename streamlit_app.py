@@ -13,6 +13,24 @@ from dotenv import load_dotenv
 # 환경 변수 로드
 load_dotenv(override=False)
 
+st.markdown("""
+<div style="
+    position: sticky;
+    top: 0;
+    z-index: 100000;
+    background: white;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: center;
+    font-size: 0.95rem;
+">
+    📚 강의 참고 자료:
+    <a href="https://platform.openai.com/docs" target="_blank">OpenAI Docs</a> |
+    <a href="https://docs.streamlit.io" target="_blank">Streamlit Docs</a> |
+    <a href="https://stackoverflow.com/questions/tagged/streamlit" target="_blank">StackOverflow</a>
+</div>
+""", unsafe_allow_html=True)
+
 # 페이지 설정
 st.set_page_config(
     page_title="GPT Text Service",

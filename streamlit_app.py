@@ -245,7 +245,7 @@ def call_openai_with_retry(client, api_params, max_retries=3, wait_sec=2):
     last_error = None
     for attempt in range(1, max_retries + 1):
         try:
-            return client.chat.completions.create(**api_params)
+            return client.responses.create(**api_params)
         except Exception as e:
             last_error = e
             time.sleep(wait_sec)
@@ -581,8 +581,8 @@ with tab1:
                         # gpt-5-mini는 temperature를 지원하지 않으므로 파라미터에서 제외
                         api_params = {
                             "model": model_name,
-                            "messages": formatted_messages,
-                            "max_completion_tokens": 1000
+                            "input": formatted_messages,
+                            "max_output_tokens": 1000
                         }
                         # temperature는 gpt-5-mini에서 지원하지 않으므로 제외
                         # 다른 모델을 사용할 경우를 대비해 주석 처리
@@ -595,7 +595,7 @@ with tab1:
                             wait_sec=2
                         )
                         
-                        response_text = response.choices[0].message.content
+                        response_text = response.output_text
                         
                         # 연속된 줄바꿈을 최대 2개로 제한하고, 불필요한 공백 제거
                         # 연속된 3개 이상의 줄바꿈을 2개로 줄임

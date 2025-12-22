@@ -551,111 +551,60 @@ with tab1:
         
         # OpenAI 클라이언트 가져오기
         client = get_openai_client()
-        
+        assistant_text = None
+        error_text = None
         if not client:
             with st.chat_message("assistant"):
                 st.error("API 키가 설정되지 않았습니다. 사이드바에서 확인하세요.")
         else:
-            # 어시스턴트 응답 생성
             with st.chat_message("assistant"):
-                with st.spinner("응답을 생성하는 중..."):
+                with st.spinner("모델이 응답 중입니다. 잠시만 기다려주세요..."):
                     try:
-                        # Vision API를 사용하기 위해 모델을 gpt-4o로 변경 (더 나은 vision 지원)
-                        # 이미지가 포함된 경우 vision 지원 모델 사용
-                        model_name = "gpt-4o" if isinstance(user_message_content, list) else "gpt-5-mini"
-                        
-                        # 메시지 변환 (이전 메시지들도 올바른 형식으로)
-                        formatted_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-                        for msg in st.session_state.messages:
-                            if msg["role"] == "user":
-                                formatted_messages.append({
-                                    "role": "user",
-                                    "content": msg["content"]
-                                })
-                            else:
-                                formatted_messages.append({
-                                    "role": msg["role"],
-                                    "content": msg["content"]
-                                })
-                        
-                        # gpt-5-mini는 temperature를 지원하지 않으므로 파라미터에서 제외
-                        api_params = {
-                            "model": model_name,
-                            "messages": formatted_messages,
-                            "max_completion_tokens": 1000
-                        }
-                        # temperature는 gpt-5-mini에서 지원하지 않으므로 제외
-                        # 다른 모델을 사용할 경우를 대비해 주석 처리
-                        # api_params["temperature"] = temperature
-                        
+                        # 마지막 요청 저장 (재시도용)
+                        st.session_state.last_api_params = api_params
+            
                         response = call_openai_with_retry(
                             client,
                             api_params,
                             max_retries=3,
                             wait_sec=2
                         )
-                        
-                        response_text = response.choices[0].message.content
-                        
-                        # 연속된 줄바꿈을 최대 2개로 제한하고, 불필요한 공백 제거
-                        # 연속된 3개 이상의 줄바꿈을 2개로 줄임
-                        response_text = re.sub(r'\n{3,}', '\n\n', response_text)
-                        # 문단 시작/끝의 불필요한 줄바꿈 제거
-                        response_text = response_text.strip()
-                        # 줄바꿈을 HTML로 변환 (연속된 줄바꿈은 문단 구분, 단일 줄바꿈은 공백)
-                        html_text = response_text.replace('\n\n', '</p><p>').replace('\n', ' ')
-                        html_text = f'<p>{html_text}</p>'
-                        
-                        st.markdown(f"""
-                            <div style="line-height: 1.8; font-size: 1rem;">
-                                {html_text}
-                            </div>
-                        """, unsafe_allow_html=True)
-                        st.session_state.messages.append({"role": "assistant", "content": response_text})
-                        
-                        # 이미지 처리 완료 후 초기화
-                        if 'pasted_image' in st.session_state:
-                            st.session_state.pasted_image = None
-                        if 'uploaded_image' in st.session_state:
-                            st.session_state.uploaded_image = None
-                        
-                        # 스크롤을 맨 아래로 이동 (더 강력한 방법)
-                        st.markdown("""
-                            <script>
-                                function scrollToBottom() {
-                                    // 여러 방법으로 스크롤 시도
-                                    window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});
-                                    window.scrollTo({top: document.documentElement.scrollHeight, behavior: 'smooth'});
-                                    
-                                    // 채팅 메시지 컨테이너 찾기
-                                    const chatMessages = document.querySelectorAll('[data-testid="stChatMessage"]');
-                                    if (chatMessages.length > 0) {
-                                        const lastMessage = chatMessages[chatMessages.length - 1];
-                                        lastMessage.scrollIntoView({behavior: 'smooth', block: 'end'});
-                                    }
-                                    
-                                    // 메인 컨테이너 스크롤
-                                    const mainContainer = document.querySelector('.main');
-                                    if (mainContainer) {
-                                        mainContainer.scrollTop = mainContainer.scrollHeight;
-                                    }
-                                }
-                                
-                                // 즉시 실행
-                                scrollToBottom();
-                                
-                                // 약간의 지연 후 다시 실행 (동적 콘텐츠 로딩 대기)
-                                setTimeout(scrollToBottom, 100);
-                                setTimeout(scrollToBottom, 300);
-                                setTimeout(scrollToBottom, 500);
-                                setTimeout(scrollToBottom, 1000);
-                            </script>
-                        """, unsafe_allow_html=True)
-                        
+            
+                        # 응답 방어
+                        if not response.choices:
+                            raise ValueError("응답 choices가 비어 있습니다.")
+            
+                        assistant_text = response.choices[0].message.content
+            
+                        if not assistant_text or not assistant_text.strip():
+                            raise ValueError("빈 응답이 반환되었습니다.")
+            
                     except Exception as e:
-                        error_message = f"오류가 발생했습니다: {str(e)}"
-                        st.error(error_message)
-                        st.session_state.messages.append({"role": "assistant", "content": error_message})
+                        error_text = f"응답을 생성하지 못했습니다.\n\n{str(e)}"
+            
+                # 🔽 spinner 밖에서 반드시 출력
+                if assistant_text:
+                    # 줄바꿈 정리 (기존 로직 유지 가능)
+                    assistant_text = re.sub(r'\n{3,}', '\n\n', assistant_text).strip()
+            
+                    st.markdown(
+                        f"<div style='line-height:1.8;font-size:1rem;'>{assistant_text}</div>",
+                        unsafe_allow_html=True
+                    )
+            
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": assistant_text}
+                    )
+            
+                else:
+                    st.warning("⚠️ 응답을 받지 못했습니다.")
+            
+                    if st.button("🔄 다시 시도"):
+                        st.rerun()
+            
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": error_text}
+                    )
 
 # 이미지 생성 탭
 with tab2:
